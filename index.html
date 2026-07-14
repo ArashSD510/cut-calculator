@@ -138,9 +138,11 @@ const ING = [
   {id:'whey', name:'Whey isolate', unit:'1 scoop', cal:120, pro:25, cat:'shake'},
   {id:'yogurt', name:'Greek yogurt (nonfat)', unit:'1 cup', cal:130, pro:23, cat:'shake'},
   {id:'feta', name:'Feta', unit:'1 oz', cal:75, pro:4, cat:'top'},
+  {id:'cheese', name:'Melted cheese blend', unit:'1 oz', cal:110, pro:7, cat:'top'},
   {id:'avocado', name:'Avocado', unit:'1/2', cal:120, pro:1, cat:'top'},
   {id:'onion', name:'Onion', unit:'1/2 cup', cal:30, pro:1, cat:'veg'},
-  {id:'veg', name:'Mixed vegetables', unit:'1 cup', cal:35, pro:2, cat:'veg'},
+  {id:'veg', name:'Peppers and zucchini', unit:'1 cup', cal:35, pro:2, cat:'veg'},
+  {id:'cilantro', name:'Cilantro and lime', unit:'to taste', cal:5, pro:0, cat:'top'},
   {id:'greens', name:'Salad greens', unit:'2 cups', cal:15, pro:1, cat:'veg'},
   {id:'rice', name:'Rice (cooked)', unit:'1/2 cup', cal:110, pro:2, cat:'carb'},
   {id:'potato', name:'Potato', unit:'1 medium', cal:160, pro:4, cat:'carb'},
@@ -173,9 +175,10 @@ const PRESETS = [
   {name:'Whey shake', items:{whey:2}, slots:['snack']},
   {name:'Greek yogurt cup', items:{yogurt:1}, slots:['snack']},
   {name:'Huevos con salsa', items:{eggs:3, whites:1, salsa:1, tortilla:1}, slots:['breakfast']},
-  {name:'Turkey taco bowl', items:{turkey:1, rice:1, salsa:1, onion:1, avocado:1}, slots:['lunch','dinner']},
-  {name:'Steak fajitas', items:{sirloin:1, onion:1, veg:1, tortilla:1}, slots:['lunch','dinner']},
-  {name:'Chicken burrito bowl', items:{chicken:1, beans:1, salsa:1, greens:1}, slots:['lunch','dinner']},
+  {name:'Street tacos', items:{turkey:1, tortilla:1, onion:1, cilantro:1, salsa:1}, slots:['lunch','dinner']},
+  {name:'Turkey taco bowl', items:{turkey:1, rice:1, salsa:1, onion:1, avocado:1, cilantro:1}, slots:['lunch','dinner']},
+  {name:'Steak fajitas', items:{sirloin:1, onion:1, veg:1, tortilla:1, cilantro:1}, slots:['lunch','dinner']},
+  {name:'Chicken burrito bowl', items:{chicken:1, beans:1, salsa:1, greens:1, cilantro:1}, slots:['lunch','dinner']},
   {name:'Greek chicken bowl', items:{chicken:1, greens:1, feta:1, hummus:1, onion:1}, slots:['lunch','dinner']},
   {name:'Kofta plate', items:{beef80:1, tzatziki:1, pita:1, shirazi:1}, slots:['dinner']},
   {name:'Salmon and shirazi', items:{salmon:1, rice:1, shirazi:1}, slots:['lunch','dinner']},
@@ -297,8 +300,30 @@ function buildRecipe(){
   const ground=names('ground'), steak=names('steak'), egg=names('egg'), shake=names('shake');
   const veg=names('veg'), carb=names('carb'), top=names('top');
   const hasGreens=qty['greens']>0, hasFeta=qty['feta']>0, hasAvo=qty['avocado']>0;
+  const hasTortilla = qty['tortilla']>0, hasSalsa = qty['salsa']>0, hasCilantro = qty['cilantro']>0, hasShirazi = qty['shirazi']>0, hasTzatziki = qty['tzatziki']>0;
   let title, steps=[];
-  if (ground.length && hasGreens) {
+  if (ground.length && hasTortilla) {
+    title = 'Street tacos';
+    steps = ['Season the '+ground.map(label).join(' and ')+' with cumin, chili powder, garlic powder, oregano, and salt. Brown over medium-high, breaking it up small. Drain the fat.',
+      qty['onion']?'Dice the onion fine and keep it raw — street taco style.':'',
+      'Char the corn tortillas directly over the flame (or in a dry hot pan) ~30 sec per side until spotted.',
+      qty['cheese']?'While the meat is still in the hot pan, scatter the melted cheese blend over it, lid on 1 min until it melts into the meat.':'',
+      'Fill the tortillas with meat, top with '+(qty['onion']?'the raw onion':'')+(hasCilantro?(qty['onion']?' and ':'')+'plenty of chopped cilantro, then squeeze lime over everything':'')+'.',
+      hasSalsa?'Spoon the salsa over — salsa verde if you have it.':''];
+  } else if (steak.length && hasTortilla) {
+    title = 'Steak fajitas';
+    steps = ['Slice the '+steak.map(label).join(' and ')+' against the grain into strips. Season with cumin, chili powder, smoked paprika, salt.',
+      'Sear the strips in a screaming-hot pan '+(qty['oil']?'with the olive oil ':'')+'~2 min, remove.',
+      (qty['onion']||qty['veg'])?'Same pan: sliced '+[qty['onion']?'onion':'',qty['veg']?'peppers and zucchini':''].filter(x=>x).join(' and ')+' until charred at the edges, ~5 min. Return the meat for the last minute.':'',
+      'Char the tortillas over the flame ~30 sec per side. Load them up'+(hasCilantro?', finish with cilantro and lime':'')+(hasSalsa?', salsa on top':'')+'.'];
+  } else if (ground.length && hasShirazi) {
+    title = 'Koobideh-style bowl';
+    steps = ['Grate '+(qty['onion']?'the onion':'half an onion')+' and squeeze out the juice. Mix into the '+ground.map(label).join(' and ')+' with salt, black pepper, and a pinch of turmeric — knead until sticky.',
+      'Form into flat logs and sear in a hot pan (or grill) ~3 min per side. Sprinkle sumac over at the end.',
+      carb.length?'Serve over the '+carb.map(label).join(' and ')+(qty['rice']?' — a little saffron water over the rice if you have it':'')+'.':'',
+      'Shirazi on the side: diced tomato, cucumber, red onion, lime juice, dried mint, salt. Make it big — it is nearly free.',
+      hasTzatziki?'Mast-o-khiar on the side for cooling.':''];
+  } else if (ground.length && hasGreens) {
     title = ground[0].id==='beef80' ? 'Burger bowl' : 'Turkey burger bowl';
     steps = ['Brown the '+ground.map(label).join(' and ')+' in a hot pan, breaking it up. Salt, pepper, garlic powder. Drain the fat.',
       qty['onion']?'Add the onion for the last 3–4 min until soft.':'',
