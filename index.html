@@ -570,24 +570,58 @@ function renderHist(){
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 function getPlan(){ try { return JSON.parse(localStorage.getItem('cutplan')) || {}; } catch(e){ return {}; } }
 function savePlan(p){ localStorage.setItem('cutplan', JSON.stringify(p)); }
+const DAYS_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+let planDay = 0, planSlotIdx = 0;
 function renderPlan(){
   const plan = getPlan();
-  $('planDays').innerHTML = DAYS.map((d,di) => {
-    const dp = plan[di] || {};
-    let c=0, p=0;
-    SLOTS.forEach(s => { const pr = PRESETS.find(x=>x.name===dp[s.id]); if(pr){ const m=pMac(pr); c+=m.c; p+=m.p; } });
-    const rows = SLOTS.map(s => {
-      const opts = PRESETS.filter(x=>x.slots.includes(s.id)).map(x => {
-        const m = pMac(x);
-        return '<option value="'+x.name+'"'+(dp[s.id]===x.name?' selected':'')+'>'+x.name+' · '+m.c+' / '+m.p+'g</option>';
-      }).join('');
-      return '<div style="display:flex; align-items:center; gap:8px; margin:4px 0;"><span style="font-size:12px; color:var(--muted); width:60px; flex:none;">'+s.name+'</span><select data-day="'+di+'" data-slot="'+s.id+'" style="flex:1; min-width:0; background:var(--card2); border:none; border-radius:10px; padding:9px 10px; color:var(--text); font-size:13px;"><option value="">—</option>'+opts+'</select></div>';
-    }).join('');
-    const stat = c ? '<span style="font-size:11.5px; font-weight:600; color:'+(p>=200&&c<=2100?'var(--green)':'var(--amber)')+';">'+c.toLocaleString()+' cal · '+p+'g</span>' : '';
-    return '<div style="border-bottom:1px solid var(--line); padding:8px 0;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;"><span style="font-size:14px; font-weight:600;">'+d+'</span>'+stat+'</div>'+rows+'</div>';
+  const dp = plan[planDay] || {};
+  const active = SLOTS[planSlotIdx];
+  let c=0, p=0;
+  SLOTS.forEach(x => { const pr = PRESETS.find(y=>y.name===dp[x.id]); if(pr){ const m=pMac(pr); c+=m.c; p+=m.p; } });
+  const dots = DAYS.map((d,i) => {
+    const has = plan[i] && Object.keys(plan[i]).length;
+    return '<button data-dday="'+i+'" style="flex:1; height:32px; border-radius:9px; border:1.5px solid '+(i===planDay?'var(--accent)':'var(--line)')+'; background:'+(i===planDay?'var(--accent)':(has?'var(--card2)':'transparent'))+'; color:'+(i===planDay?'#fff':(has?'var(--text)':'var(--muted)'))+'; font-size:11px; font-weight:600; padding:0;">'+d+'</button>';
   }).join('');
+  const rows = SLOTS.map((x,i) => {
+    const sel = dp[x.id];
+    const isA = i===planSlotIdx;
+    return '<div data-slotidx="'+i+'" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; margin:5px 0; background:'+(isA?'var(--card2)':'transparent')+'; border:1.5px solid '+(isA?'var(--accent)':'var(--line)')+';">'+
+      '<span style="font-size:13px; font-weight:600; flex:none;">'+x.name+'</span>'+
+      '<span style="font-size:12.5px; text-align:right; min-width:0; color:'+(sel?'var(--green)':'var(--muted)')+';">'+(sel ? sel+' ✓' : 'tap to pick')+'</span></div>';
+  }).join('');
+  const opts = PRESETS.filter(x=>x.slots.includes(active.id)).map(x => {
+    const m = pMac(x);
+    const isSel = dp[active.id]===x.name;
+    return '<button data-opt="'+x.name+'" style="width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--card2); border:2px solid '+(isSel?'var(--accent)':'transparent')+'; border-radius:10px; padding:12px; margin:4px 0; color:var(--text); font-size:13.5px; text-align:left;"><span style="font-weight:600; min-width:0;">'+x.name+'</span><span style="color:var(--muted); font-size:12px; flex:none;">'+m.c+' · '+m.p+'g</span></button>';
+  }).join('');
+  $('planDays').innerHTML =
+    '<div style="display:flex; gap:5px; margin-bottom:14px;">'+dots+'</div>'+
+    '<p style="font-size:17px; font-weight:600; margin:0 0 2px;">'+DAYS_FULL[planDay]+'</p>'+
+    '<p style="font-size:12.5px; margin:0 0 8px; font-weight:600; color:'+(c ? (p>=200&&c<=2100?'var(--green)':'var(--amber)') : 'var(--muted)')+';">'+(c ? c.toLocaleString()+' cal · '+p+'g protein'+(p>=200&&c<=2100?' — on plan ✓':'') : 'Nothing planned yet')+'</p>'+
+    rows+
+    '<p style="font-size:13px; font-weight:600; margin:14px 0 4px;">Pick '+active.name.toLowerCase()+':</p>'+
+    opts+
+    '<div style="display:flex; gap:8px; margin-top:8px;">'+
+    '<button data-skip="1" style="flex:1; background:var(--card2); border:none; border-radius:10px; padding:11px; color:var(--text); font-size:13px; font-weight:600;">Skip '+active.name.toLowerCase()+'</button>'+
+    (dp[active.id] ? '<button data-clearslot="1" style="flex:1; background:var(--card2); border:none; border-radius:10px; padding:11px; color:var(--red); font-size:13px; font-weight:600;">Remove pick</button>' : '')+
+    '</div>';
   renderShop();
 }
+function planAdvance(){
+  if (planSlotIdx < SLOTS.length-1) planSlotIdx++;
+  else if (planDay < 6) { planDay++; planSlotIdx = 0; }
+}
+$('planDays').addEventListener('click', e => {
+  const t = e.target.closest('[data-dday],[data-slotidx],[data-opt],[data-skip],[data-clearslot]');
+  if (!t) return;
+  const plan = getPlan();
+  if (t.dataset.dday !== undefined) { planDay = +t.dataset.dday; planSlotIdx = 0; }
+  else if (t.dataset.slotidx !== undefined) { planSlotIdx = +t.dataset.slotidx; }
+  else if (t.dataset.opt) { plan[planDay] = plan[planDay] || {}; plan[planDay][SLOTS[planSlotIdx].id] = t.dataset.opt; savePlan(plan); planAdvance(); }
+  else if (t.dataset.skip) { planAdvance(); }
+  else if (t.dataset.clearslot) { if (plan[planDay]) delete plan[planDay][SLOTS[planSlotIdx].id]; savePlan(plan); }
+  renderPlan();
+});
 function shopDesc(id, n){
   const lb = oz => (Math.round(oz/16*4)/4) + ' lb';
   const r1 = x => Math.round(x*10)/10;
@@ -651,13 +685,6 @@ function renderShop(){
   $('copyShop').style.display = 'block';
   shopText = text;
 }
-$('planDays').addEventListener('change', e => {
-  const s = e.target.closest('select'); if(!s) return;
-  const plan = getPlan();
-  plan[s.dataset.day] = plan[s.dataset.day] || {};
-  if (s.value) plan[s.dataset.day][s.dataset.slot] = s.value; else delete plan[s.dataset.day][s.dataset.slot];
-  savePlan(plan); renderPlan();
-});
 $('copyShop').addEventListener('click', () => {
   const done = () => { $('copyShop').textContent = 'Copied ✓'; setTimeout(()=>{ $('copyShop').textContent = 'Copy list'; }, 1500); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(shopText).then(done, done); else done();
