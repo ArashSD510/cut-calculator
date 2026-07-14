@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Cut Calculator</title>
+<style>
+:root { --bg:#0f0f10; --card:#1c1c1e; --card2:#2a2a2d; --text:#f2f2f2; --muted:#9a9aa0; --line:#333336; --green:#4cd07d; --amber:#f0b13c; --red:#ef5b5b; --accent:#6c8cff; }
+@media (prefers-color-scheme: light) { :root { --bg:#f5f5f7; --card:#ffffff; --card2:#ececef; --text:#1a1a1c; --muted:#6e6e73; --line:#dcdce0; } }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:16px 14px 48px; max-width:560px; margin-inline:auto; }
+h1 { font-size:20px; font-weight:600; margin:4px 0 2px; }
+.sub { font-size:13px; color:var(--muted); margin:0 0 14px; }
+.cards { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.card { background:var(--card); border-radius:14px; padding:12px 14px; }
+.card .lbl { font-size:12px; color:var(--muted); margin:0 0 2px; }
+.card .num { font-size:22px; font-weight:600; margin:0; }
+.card .cap { font-size:11px; color:var(--muted); margin:2px 0 0; }
+.bar { height:6px; background:var(--card2); border-radius:3px; margin-top:8px; overflow:hidden; }
+.bar div { height:100%; border-radius:3px; background:var(--accent); transition:width .2s; }
+.verdict { font-size:13px; font-weight:600; padding:10px 14px; border-radius:12px; background:var(--card); margin-bottom:14px; }
+.row { display:flex; align-items:center; gap:10px; background:var(--card); border-radius:12px; padding:10px 12px; margin-bottom:6px; }
+.row .info { flex:1; min-width:0; }
+.row .n { font-size:14px; font-weight:600; margin:0; }
+.row .d { font-size:11.5px; color:var(--muted); margin:0; }
+.row button { width:38px; height:38px; border-radius:10px; border:none; background:var(--card2); color:var(--text); font-size:20px; font-weight:600; }
+.row button:active { opacity:.6; }
+.row .q { min-width:20px; text-align:center; font-size:16px; font-weight:600; }
+.btns { display:flex; gap:8px; margin:14px 0; }
+.btns button { flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:600; }
+#gen { background:var(--accent); color:#fff; }
+#log { background:var(--green); color:#08210f; }
+#reset { background:var(--card2); color:var(--text); flex:0 0 auto; padding:14px 16px; }
+.recipe { background:var(--card); border-radius:14px; padding:14px 16px; margin-bottom:14px; display:none; }
+.recipe h2 { font-size:16px; margin:0 0 2px; }
+.recipe .m { font-size:12.5px; color:var(--muted); margin:0 0 10px; }
+.recipe p { font-size:14px; line-height:1.6; margin:0 0 8px; }
+.today { background:var(--card); border-radius:14px; padding:14px 16px; }
+.today h2 { font-size:15px; margin:0 0 8px; }
+.today .meal { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); padding:4px 0; border-bottom:1px solid var(--line); }
+.today .clear { margin-top:10px; background:none; border:none; color:var(--red); font-size:13px; font-weight:600; padding:0; }
+.gcal { color:var(--green); } .acal { color:var(--amber); } .rcal { color:var(--red); }
+</style>
+</head>
+<body>
+<h1>Hard reset cut</h1>
+<p class="sub">2,000 cal · 210g protein · build a meal, log it, stay on plan</p>
+
+<div class="cards">
+  <div class="card"><p class="lbl">This meal</p><p class="num"><span id="mc">0</span> cal</p><p class="cap"><span id="mp">0</span>g protein · budget ~650 / 50g+</p></div>
+  <div class="card"><p class="lbl">Today so far</p><p class="num"><span id="dc">0</span> cal</p><p class="cap"><span id="dp">0</span>g of 210g protein</p>
+    <div class="bar"><div id="pbar" style="width:0%"></div></div></div>
+</div>
+<div class="verdict" id="verdict">Pick ingredients below</div>
+
+<div id="list"></div>
+
+<div class="btns">
+  <button id="gen">Recipe</button>
+  <button id="log">Log meal</button>
+  <button id="reset">↺</button>
+</div>
+
+<div class="recipe" id="recipe">
+  <h2 id="rt"></h2><p class="m" id="rm"></p><div id="rs"></div>
+</div>
+
+<div class="today">
+  <h2>Today's log</h2>
+  <div id="meals"><p style="font-size:13px;color:var(--muted);margin:0">Nothing logged yet.</p></div>
+  <button class="clear" id="clear">Clear today</button>
+</div>
+
+<script>
+const ING = [
+  {id:'sirloin', name:'Sirloin steak', unit:'8 oz', cal:460, pro:60, cat:'steak'},
+  {id:'beef80', name:'Ground beef 80/20', unit:'6 oz', cal:460, pro:40, cat:'ground'},
+  {id:'turkey', name:'Ground turkey 93/7', unit:'8 oz', cal:340, pro:44, cat:'ground'},
+  {id:'chicken', name:'Chicken breast', unit:'8 oz', cal:370, pro:62, cat:'steak'},
+  {id:'salmon', name:'Salmon', unit:'6 oz', cal:350, pro:38, cat:'steak'},
+  {id:'eggs', name:'Eggs', unit:'1 egg', cal:70, pro:6, cat:'egg'},
+  {id:'whites', name:'Egg whites', unit:'1 cup', cal:125, pro:26, cat:'egg'},
+  {id:'whey', name:'Whey isolate', unit:'1 scoop', cal:120, pro:25, cat:'shake'},
+  {id:'yogurt', name:'Greek yogurt (nonfat)', unit:'1 cup', cal:130, pro:23, cat:'shake'},
+  {id:'feta', name:'Feta', unit:'1 oz', cal:75, pro:4, cat:'top'},
+  {id:'avocado', name:'Avocado', unit:'1/2', cal:120, pro:1, cat:'top'},
+  {id:'onion', name:'Onion', unit:'1/2 cup', cal:30, pro:1, cat:'veg'},
+  {id:'veg', name:'Mixed vegetables', unit:'1 cup', cal:35, pro:2, cat:'veg'},
+  {id:'greens', name:'Salad greens', unit:'2 cups', cal:15, pro:1, cat:'veg'},
+  {id:'rice', name:'Rice (cooked)', unit:'1/2 cup', cal:110, pro:2, cat:'carb'},
+  {id:'potato', name:'Potato', unit:'1 medium', cal:160, pro:4, cat:'carb'},
+  {id:'oil', name:'Olive oil', unit:'1 tsp', cal:40, pro:0, cat:'top'}
+];
+const qty = {};
+const $ = id => document.getElementById(id);
+const list = $('list');
+ING.forEach(g => {
+  qty[g.id] = 0;
+  const r = document.createElement('div');
+  r.className = 'row';
+  r.innerHTML = '<div class="info"><p class="n">'+g.name+'</p><p class="d">'+g.unit+' · '+g.cal+' cal · '+g.pro+'g protein</p></div>'+
+    '<button data-id="'+g.id+'" data-d="-1">−</button><span class="q" id="q-'+g.id+'">0</span><button data-id="'+g.id+'" data-d="1">+</button>';
+  list.appendChild(r);
+});
+list.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  qty[b.dataset.id] = Math.max(0, Math.min(6, qty[b.dataset.id] + +b.dataset.d));
+  $('q-'+b.dataset.id).textContent = qty[b.dataset.id];
+  update();
+});
+function totals(){ let c=0,p=0; ING.forEach(g=>{c+=g.cal*qty[g.id];p+=g.pro*qty[g.id];}); return {c:Math.round(c),p:Math.round(p)}; }
+function todayKey(){ return 'cutlog-' + new Date().toISOString().slice(0,10); }
+function getLog(){ try { return JSON.parse(localStorage.getItem(todayKey())) || []; } catch(e){ return []; } }
+function saveLog(l){ localStorage.setItem(todayKey(), JSON.stringify(l)); }
+function update(){
+  const t = totals();
+  $('mc').textContent = t.c.toLocaleString(); $('mp').textContent = t.p;
+  const v = $('verdict');
+  if (t.c === 0) { v.textContent = 'Pick ingredients below'; v.style.color = 'var(--muted)'; }
+  else if (t.c > 800) { v.textContent = 'Too heavy — trim ~' + (t.c-700) + ' cal'; v.style.color = 'var(--red)'; }
+  else if (t.p < 40) { v.textContent = 'Needs more protein'; v.style.color = 'var(--amber)'; }
+  else if (t.p >= 50 && t.c <= 700) { v.textContent = 'On plan — solid meal'; v.style.color = 'var(--green)'; }
+  else { v.textContent = 'Close — almost there'; v.style.color = 'var(--amber)'; }
+  renderDay();
+}
+function renderDay(){
+  const log = getLog();
+  let c=0,p=0;
+  log.forEach(m=>{c+=m.c;p+=m.p;});
+  $('dc').textContent = c.toLocaleString(); $('dp').textContent = p;
+  $('pbar').style.width = Math.min(100, p/210*100) + '%';
+  $('dc').className = c > 2100 ? 'rcal' : (c > 1800 ? 'acal' : '');
+  const box = $('meals');
+  box.innerHTML = log.length ? log.map(m=>'<div class="meal"><span>'+m.t+' · '+m.name+'</span><span>'+m.c+' cal / '+m.p+'g</span></div>').join('') : '<p style="font-size:13px;color:var(--muted);margin:0">Nothing logged yet.</p>';
+}
+function picked(){ return ING.filter(g=>qty[g.id]>0); }
+function names(cat){ return picked().filter(g=>g.cat===cat); }
+function label(g){ return (qty[g.id]>1 ? qty[g.id]+'× ' : '') + g.unit + ' ' + g.name.toLowerCase(); }
+function buildRecipe(){
+  const sel = picked(); if(!sel.length) return null;
+  const ground=names('ground'), steak=names('steak'), egg=names('egg'), shake=names('shake');
+  const veg=names('veg'), carb=names('carb'), top=names('top');
+  const hasGreens=qty['greens']>0, hasFeta=qty['feta']>0, hasAvo=qty['avocado']>0;
+  let title, steps=[];
+  if (ground.length && hasGreens) {
+    title = ground[0].id==='beef80' ? 'Burger bowl' : 'Turkey burger bowl';
+    steps = ['Brown the '+ground.map(label).join(' and ')+' in a hot pan, breaking it up. Salt, pepper, garlic powder. Drain the fat.',
+      qty['onion']?'Add the onion for the last 3–4 min until soft.':'',
+      'Pile greens in a bowl'+(carb.length?', add the '+carb.map(label).join(' and '):'')+', top with the meat.',
+      (hasFeta||hasAvo)?'Finish with '+top.map(label).join(', ')+'. Lemon or hot sauce ties it together.':'Hot sauce and mustard are free calories — use them.'];
+  } else if (ground.length) {
+    title = 'Skillet '+(qty['rice']?'rice bowl':'hash');
+    steps = ['Brown the '+ground.map(label).join(' and ')+' over medium-high with cumin, paprika, salt. Drain.',
+      veg.length?'Toss in the '+veg.map(label).join(' and ')+', cook 4–5 min.':'',
+      carb.length?'Serve over the '+carb.map(label).join(' and ')+'.':'Serve straight from the pan.',
+      top.length?'Top with '+top.map(label).join(', ')+'.':''];
+  } else if (steak.length) {
+    title = 'Seared '+steak[0].name.toLowerCase()+(hasGreens?' salad':' plate');
+    steps = ['Pat the '+steak.map(label).join(' and ')+' dry, season generously.',
+      'Sear in a screaming-hot pan '+(qty['oil']?'with the olive oil ':'')+'~3–4 min per side (steak: rest 5 min, then slice).',
+      qty['onion']?'Soften the onion in the same pan — the fond is flavor.':'',
+      hasGreens?'Slice over greens'+(top.length?' with '+top.filter(g=>g.id!=='oil').map(label).join(', '):'')+'. Vinegar dressing, not creamy.':(veg.length||carb.length?'Plate with the '+veg.concat(carb).map(label).join(' and ')+'.':'')];
+  } else if (egg.length) {
+    title = 'High-protein scramble';
+    steps = [qty['onion']?'Soften the onion in a nonstick pan, 3 min.':'Heat a nonstick pan over medium.',
+      'Add the '+egg.map(label).join(' and ')+', scramble low and slow.',
+      hasFeta?'Crumble feta in off the heat so it stays creamy.':'',
+      hasAvo?'Avocado on the side, salted.':''];
+  } else if (shake.length) {
+    title = qty['yogurt'] ? 'Protein parfait' : 'Whey shake';
+    steps = [qty['yogurt']?'Stir the whey into the greek yogurt until smooth — instant pudding.':'Shake the whey with 10–12 oz cold water and ice.',
+      'Best slot: post-workout or the 9pm hunger killer.'];
+  } else {
+    title = 'Side plate';
+    steps = ['Roast or sauté the '+sel.map(label).join(', ')+' with salt and pepper. Add a protein to make it a meal.'];
+  }
+  return {title, steps: steps.filter(s=>s)};
+}
+$('gen').addEventListener('click', () => {
+  const r = buildRecipe(); if(!r) return;
+  const t = totals();
+  $('rt').textContent = r.title;
+  $('rm').textContent = t.c.toLocaleString()+' cal · '+t.p+'g protein';
+  $('rs').innerHTML = r.steps.map((s,i)=>'<p><strong>'+(i+1)+'.</strong> '+s+'</p>').join('');
+  $('recipe').style.display = 'block';
+  $('recipe').scrollIntoView({behavior:'smooth'});
+});
+$('log').addEventListener('click', () => {
+  const t = totals(); if(!t.c) return;
+  const r = buildRecipe();
+  const log = getLog();
+  log.push({t: new Date().toTimeString().slice(0,5), name: r ? r.title : 'Meal', c: t.c, p: t.p});
+  saveLog(log);
+  ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
+  $('recipe').style.display = 'none';
+  update();
+});
+$('reset').addEventListener('click', () => {
+  ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
+  $('recipe').style.display = 'none';
+  update();
+});
+$('clear').addEventListener('click', () => { if(confirm('Clear today\'s log?')){ saveLog([]); renderDay(); } });
+update();
+</script>
+</body>
+</html>
