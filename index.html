@@ -238,7 +238,7 @@ const PRESETS = [
   {name:'Feta scramble + shake', items:{eggs:3, feta:1, onion:1, whey:1}, slots:['breakfast']},
   {name:'Turkey scramble', items:{turkey:1, eggs:2, onion:1}, slots:['breakfast']},
   {name:'Protein parfait', items:{yogurt:1, whey:1}, slots:['breakfast','snack']},
-  {name:'Avocado toast, eggs + shake', items:{toast:1, avocado:1, eggs:3, whey:1}, slots:['breakfast']},
+  {name:'Avocado toast + yogurt whey cup', items:{toast:1, avocado:1, eggs:2, whey:1, yogurt:1}, slots:['breakfast']},
   {name:'Turkey chorizo huevos', items:{turkey:1, eggs:2, salsa:1, tortilla:1}, slots:['breakfast']},
   {name:'Banana milkshake', items:{whey:2, banana:1, milk:1}, slots:['breakfast','snack']},
   {name:'Burger bowl', items:{beef80:1, greens:1, cheese:1, avocado:1, onion:1}, slots:['dinner']},
@@ -510,7 +510,17 @@ function buildRecipe(){
     const n = g.name.toLowerCase(), w = n.split(' ');
     return !(text.includes(n) || text.includes(w[0]) || text.includes(w[w.length-1]));
   });
-  if (missing.length) steps.push('Finish with the ' + missing.map(label).join(', ') + ' — crumble, slice, or spoon it over the top.');
+  const missShake = missing.filter(g => g.cat === 'shake');
+  const missFood = missing.filter(g => g.cat !== 'shake');
+  if (missFood.length) steps.push('Finish with the ' + missFood.map(label).join(', ') + ' — crumble, slice, or spoon it over the top.');
+  if (missShake.length) {
+    const hasWhey = missShake.some(g=>g.id==='whey'), hasYog = missShake.some(g=>g.id==='yogurt');
+    let side;
+    if (hasWhey && hasYog) side = 'On the side: stir the whey into the greek yogurt until smooth — instant protein pudding';
+    else if (hasWhey) side = 'On the side: ' + missShake.map(label).join(' + ') + ' shaken with 10–12 oz cold water';
+    else side = 'On the side: ' + missShake.map(label).join(' + ');
+    steps.push(side + ' — this is what gets the protein to target.');
+  }
   return {title, steps};
 }
 function showRecipe(){
