@@ -79,20 +79,21 @@ h2 { font-size:15px; font-weight:600; margin:18px 0 8px; }
   </div>
 
   <div class="slots" id="slots"></div>
-  <div id="planHint" style="display:none; background:var(--card); border-radius:12px; padding:10px 14px; margin-bottom:10px; font-size:13px; align-items:center; justify-content:space-between; gap:10px;"></div>
+  <div id="planHint" style="display:none; background:var(--card); border:2px solid var(--accent); border-radius:14px; padding:14px 16px; margin-bottom:10px;"></div>
 
   <button id="sugBtn">What should I eat next?</button>
   <div class="suggest" id="suggest"></div>
 
-  <h2>Quick meals — one tap to load</h2>
-  <div class="presets" id="presets"></div>
+  <button id="qmToggle" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--card); border:none; border-radius:12px; padding:13px 14px; color:var(--text); font-size:14px; font-weight:600; margin-bottom:8px;">Quick meals — one tap to load <span id="qmChev" style="color:var(--muted);">▸</span></button>
+  <div id="qmWrap" style="display:none; margin-bottom:8px;"><div class="presets" id="presets"></div></div>
+
+  <button id="listToggle" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--card); border:none; border-radius:12px; padding:13px 14px; color:var(--text); font-size:14px; font-weight:600; margin-bottom:8px;">Build your own — ingredients <span id="listChev" style="color:var(--muted);">▸</span></button>
+  <div id="list" style="display:none;"></div>
 
   <div class="cards" style="margin-top:14px;">
     <div class="card"><p class="lbl">This meal</p><p class="num"><span id="mc">0</span> cal</p><p class="cap"><span id="mp">0</span>g protein</p></div>
     <div class="card"><p class="lbl">Verdict</p><p class="num" style="font-size:14px; margin-top:4px;" id="verdict">Pick ingredients</p></div>
   </div>
-  <button id="listToggle" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--card); border:none; border-radius:12px; padding:13px 14px; color:var(--text); font-size:14px; font-weight:600; margin-bottom:8px;">Build your own — ingredients <span id="listChev" style="color:var(--muted);">▸</span></button>
-  <div id="list" style="display:none;"></div>
   <div class="btns">
     <button id="gen">Recipe</button>
     <button id="log">Log meal</button>
@@ -325,28 +326,50 @@ function renderMeals(){
   $('meals').innerHTML = log.length ? log.map(m=>'<div class="meal"><span>'+m.t+' · '+(m.slot||'')+' · '+m.name+'</span><span>'+m.c+' / '+m.p+'g</span></div>').join('') : '<p style="font-size:13px;color:var(--muted);margin:0">Nothing logged yet.</p>';
 }
 
-$('sugBtn').addEventListener('click', () => {
+function loadPresetQ(p){
+  ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
+  for (const k in p.items){ qty[k]=p.items[k]; $('q-'+k).textContent = p.items[k]; }
+  curPreset = p;
+  update();
+}
+let sugList = [], sugIdx = 0;
+function showSuggestion(fresh){
   const dt = dayTotals();
   const remC = CAL_T - dt.c, remP = PRO_T - dt.p;
   const done = loggedSlots();
   const open = SLOTS.filter(s => !done[s.id]);
   const box = $('suggest');
   box.style.display = 'block';
-  if (remC <= 100) { box.innerHTML = remP > 15 ? 'Calories are done but protein is short by '+remP+'g — a whey shake in water (240 cal) is the least-bad move. Tomorrow, front-load protein earlier.' : '<span class="gtxt">Day complete — calories and protein both on target. Close the kitchen.</span>'; return; }
-  if (!open.length) { box.innerHTML = 'All slots logged. You have '+remC+' cal / '+remP+'g protein left — a shake or greek yogurt covers the protein gap.'; return; }
-  const perSlot = remC / open.length;
-  const fits = PRESETS.filter(p => p.slots.includes(open[0].id)).map(p => ({p, m:pMac(p)})).filter(x => x.m.c <= remC + 60);
-  fits.sort((a,b) => (Math.abs(a.m.c - perSlot) - a.m.p*3) - (Math.abs(b.m.c - perSlot) - b.m.p*3));
-  const pick = fits[0];
-  let html = 'You have <b>'+remC.toLocaleString()+' cal</b> and <b>'+remP+'g protein</b> left, with '+open.map(s=>s.name.toLowerCase()).join(' + ')+' to go.';
-  if (pick) {
-    html += '<br>Best next move for '+open[0].name.toLowerCase()+': <b>'+pick.p.name+'</b> ('+pick.m.c+' cal / '+pick.m.p+'g).';
-    const after = remP - pick.m.p, afterC = remC - pick.m.c;
-    if (open.length > 1 && after > 0) html += ' That leaves '+afterC.toLocaleString()+' cal / '+after+'g for the rest.';
+  if (remC <= 100) { box.innerHTML = remP > 15 ? 'Calories are done but protein is short by '+remP+'g — a whey shake in water (240 cal) is the least-bad move.' : '<span class="gtxt">Day complete — calories and protein both on target. Close the kitchen.</span>'; return; }
+  if (!open.length) { box.innerHTML = 'All slots logged. You have '+remC+' cal / '+remP+'g protein left — a shake covers the protein gap.'; return; }
+  if (fresh || !sugList.length) {
+    const perSlot = remC / open.length;
+    sugList = PRESETS.filter(p => p.slots.includes(open[0].id)).map(p => ({p, m:pMac(p)})).filter(x => x.m.c <= remC + 60);
+    sugList.sort((a,b) => (Math.abs(a.m.c - perSlot) - a.m.p*3) - (Math.abs(b.m.c - perSlot) - b.m.p*3));
+    sugIdx = 0;
   } else {
-    html += '<br>Tight on calories — go whey shake in water or plain greek yogurt.';
+    sugIdx = (sugIdx + 1) % sugList.length;
   }
-  box.innerHTML = html;
+  const pick = sugList[sugIdx];
+  if (!pick) { box.innerHTML = 'Tight on calories ('+remC+' left) — go whey shake in water or plain greek yogurt.'; return; }
+  selSlot = open[0].id;
+  loadPresetQ(pick.p);
+  showRecipe();
+  box.innerHTML = '<p style="margin:0;">'+SLOTS.find(s=>s.id===selSlot).name+': <strong>'+pick.p.name+'</strong> · '+pick.m.c.toLocaleString()+' cal / '+pick.m.p+'g — loaded, recipe below. Happy? Hit Log.</p>'+
+    '<div style="display:flex; gap:8px; margin-top:10px;">'+
+    '<button id="sugAgain" style="flex:1; background:var(--card2); color:var(--text); border:none; border-radius:10px; padding:11px; font-size:13.5px; font-weight:600;">Another idea</button>'+
+    '<button id="sugClear" style="flex:1; background:var(--card2); color:var(--red); border:none; border-radius:10px; padding:11px; font-size:13.5px; font-weight:600;">Clear</button></div>';
+}
+$('sugBtn').addEventListener('click', () => showSuggestion(true));
+$('suggest').addEventListener('click', e => {
+  if (e.target.closest('#sugAgain')) { showSuggestion(false); return; }
+  if (e.target.closest('#sugClear')) {
+    ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
+    curPreset = null; sugList = [];
+    $('recipe').style.display = 'none';
+    $('suggest').style.display = 'none';
+    update();
+  }
 });
 
 function buildRecipe(){
@@ -433,9 +456,10 @@ function buildRecipe(){
   if (missing.length) steps.push('Finish with the ' + missing.map(label).join(', ') + ' — crumble, slice, or spoon it over the top.');
   return {title, steps};
 }
-$('gen').addEventListener('click', () => {
+function showRecipe(){
   const r = (curPreset && curPreset.recipe) ? {title: curPreset.name, steps: curPreset.recipe} : buildRecipe();
   if(!r) return;
+  if (curPreset) r.title = curPreset.name;
   const t = totals();
   $('rt').textContent = r.title;
   $('rm').textContent = t.c.toLocaleString()+' cal · '+t.p+'g protein · logging to '+selSlot;
@@ -445,7 +469,8 @@ $('gen').addEventListener('click', () => {
   $('rs').innerHTML = r.steps.map((s,i)=>'<p><strong>'+(i+1)+'.</strong> '+s+'</p>').join('');
   $('recipe').style.display = 'block';
   $('recipe').scrollIntoView({behavior:'smooth'});
-});
+}
+$('gen').addEventListener('click', showRecipe);
 $('log').addEventListener('click', () => {
   const t = totals(); if(!t.c) return;
   const r = curPreset ? {title: curPreset.name} : buildRecipe();
@@ -472,6 +497,11 @@ $('listToggle').addEventListener('click', () => {
   const open = $('list').style.display !== 'none';
   $('list').style.display = open ? 'none' : 'block';
   $('listChev').textContent = open ? '▸' : '▾';
+});
+$('qmToggle').addEventListener('click', () => {
+  const open = $('qmWrap').style.display !== 'none';
+  $('qmWrap').style.display = open ? 'none' : 'block';
+  $('qmChev').textContent = open ? '▸' : '▾';
 });
 
 $('wSave').addEventListener('click', () => {
@@ -637,8 +667,13 @@ function updatePlanHint(){
   const nm = (getPlan()[di]||{})[selSlot];
   const box = $('planHint');
   if (!nm){ box.style.display='none'; return; }
-  box.style.display = 'flex';
-  box.innerHTML = '<span>Planned '+selSlot+': <strong>'+nm+'</strong></span><button id="loadPlanned" style="flex:none; background:var(--accent); color:#fff; border:none; border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600;">Load</button>';
+  const p = PRESETS.find(x=>x.name===nm);
+  const m = p ? pMac(p) : null;
+  box.style.display = 'block';
+  box.innerHTML = '<p style="font-size:11.5px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin:0 0 6px;">Planned '+SLOTS.find(s=>s.id===selSlot).name.toLowerCase()+'</p>'+
+    '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">'+
+    '<div style="min-width:0;"><p style="font-size:17px; font-weight:600; margin:0;">'+nm+'</p>'+(m?'<p style="font-size:13px; color:var(--muted); margin:3px 0 0;">'+m.c.toLocaleString()+' cal · '+m.p+'g protein</p>':'')+'</div>'+
+    '<button id="loadPlanned" style="flex:none; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:14px 22px; font-size:15px; font-weight:600;">Load</button></div>';
 }
 $('planHint').addEventListener('click', e => {
   if (!e.target.closest('#loadPlanned')) return;
