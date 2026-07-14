@@ -96,7 +96,7 @@ h2 { font-size:15px; font-weight:600; margin:18px 0 8px; }
     <button id="log">Log meal</button>
     <button id="reset">↺</button>
   </div>
-  <div class="recipe" id="recipe"><h3 id="rt"></h3><p class="m" id="rm"></p><div id="rs"></div></div>
+  <div class="recipe" id="recipe"><h3 id="rt"></h3><p class="m" id="rm"></p><div id="ri" style="margin:0 0 12px; padding:10px 12px; background:var(--card2); border-radius:10px;"></div><div id="rs"></div></div>
   <div class="panel">
     <h2 style="margin-top:0;">Today's log</h2>
     <div id="meals"></div>
@@ -146,6 +146,7 @@ const ING = [
   {id:'veg', name:'Peppers and zucchini', unit:'1 cup', cal:35, pro:2, cat:'veg'},
   {id:'cilantro', name:'Cilantro and lime', unit:'to taste', cal:5, pro:0, cat:'top'},
   {id:'greens', name:'Salad greens', unit:'2 cups', cal:15, pro:1, cat:'veg'},
+  {id:'cabbage', name:'Cabbage / slaw mix', unit:'2 cups', cal:40, pro:2, cat:'veg'},
   {id:'rice', name:'Rice (cooked)', unit:'1/2 cup', cal:110, pro:2, cat:'carb'},
   {id:'potato', name:'Potato', unit:'1 medium', cal:160, pro:4, cat:'carb'},
   {id:'oil', name:'Olive oil', unit:'1 tsp', cal:40, pro:0, cat:'top'},
@@ -165,33 +166,58 @@ const SLOTS = [
   {id:'snack', name:'Snack', budget:350}
 ];
 const PRESETS = [
-  {name:'Feta scramble', items:{eggs:4, feta:1, onion:1}, slots:['breakfast']},
+  {name:'Feta scramble + shake', items:{eggs:3, feta:1, onion:1, whey:1}, slots:['breakfast']},
   {name:'Turkey scramble', items:{turkey:1, eggs:2, onion:1}, slots:['breakfast']},
   {name:'Protein parfait', items:{yogurt:1, whey:1}, slots:['breakfast','snack']},
-  {name:'Avocado toast + boiled eggs', items:{toast:1, avocado:1, eggs:2, oil:1}, slots:['breakfast']},
-  {name:'Burger bowl', items:{beef80:1, greens:1, feta:1, avocado:1, onion:1}, slots:['lunch','dinner']},
+  {name:'Avocado toast, eggs + shake', items:{toast:1, avocado:1, eggs:3, whey:1}, slots:['breakfast']},
+  {name:'Turkey chorizo huevos', items:{turkey:1, eggs:2, salsa:1, tortilla:1}, slots:['breakfast']},
+  {name:'Banana milkshake', items:{whey:2, banana:1, milk:1}, slots:['breakfast','snack']},
+  {name:'Burger bowl', items:{beef80:1, greens:1, cheese:1, avocado:1, onion:1}, slots:['dinner']},
   {name:'Turkey burger bowl', items:{turkey:1, greens:1, feta:1, onion:1}, slots:['lunch','dinner']},
   {name:'Steak salad', items:{sirloin:1, greens:1, feta:1}, slots:['lunch','dinner']},
-  {name:'Turkey rice bowl', items:{turkey:1, rice:1, onion:1, veg:1}, slots:['lunch','dinner']},
+  {name:'Turkey black bean bowl', items:{turkey:1, rice:1, beans:1, onion:1}, slots:['lunch','dinner']},
   {name:'Chicken plate', items:{chicken:1, veg:1, rice:1}, slots:['lunch','dinner']},
   {name:'Steak and potato', items:{sirloin:1, potato:1, veg:1}, slots:['dinner']},
   {name:'Whey shake (water)', items:{whey:2}, slots:['snack']},
-  {name:'Banana milkshake', items:{whey:2, banana:1, milk:1}, slots:['snack','breakfast']},
-  {name:'Greek yogurt cup', items:{yogurt:1}, slots:['snack']},
-  {name:'Huevos con salsa', items:{eggs:3, salsa:1, tortilla:1, cheese:1}, slots:['breakfast']},
-  {name:'Street tacos', items:{turkey:1, tortilla:1, onion:1, cilantro:1, salsa:1}, slots:['lunch','dinner']},
-  {name:'Turkey taco bowl', items:{turkey:1, rice:1, salsa:1, onion:1, avocado:1, cilantro:1}, slots:['lunch','dinner']},
+  {name:'Street tacos', items:{turkey:1, tortilla:1, onion:1, cilantro:1, salsa:1, cheese:1}, slots:['lunch','dinner']},
+  {name:'Turkey taco bowl', items:{turkey:1, rice:1, salsa:1, onion:1, cheese:1, cilantro:1}, slots:['lunch','dinner']},
   {name:'Steak fajitas', items:{sirloin:1, onion:1, veg:1, tortilla:1, cilantro:1}, slots:['lunch','dinner']},
   {name:'Chicken burrito bowl', items:{chicken:1, beans:1, salsa:1, greens:1, cilantro:1}, slots:['lunch','dinner']},
   {name:'Greek chicken bowl', items:{chicken:1, greens:1, feta:1, hummus:1, onion:1}, slots:['lunch','dinner']},
-  {name:'Kofta plate', items:{beef80:1, tzatziki:1, pita:1, shirazi:1}, slots:['dinner']},
-  {name:'Salmon and shirazi', items:{salmon:1, rice:1, shirazi:1}, slots:['lunch','dinner']},
-  {name:'Koobideh bowl', items:{beef80:1, rice:1, onion:1, shirazi:1}, slots:['dinner']},
-  {name:'Joojeh plate', items:{chicken:1, rice:1, shirazi:1, tzatziki:1}, slots:['lunch','dinner']}
+  {name:'Turkey kofta plate', items:{turkey:1, tzatziki:1, pita:1, shirazi:1}, slots:['dinner']},
+  {name:'Salmon, yogurt-dill + shirazi', items:{salmon:1, rice:1, shirazi:1, yogurt:1}, slots:['lunch','dinner']},
+  {name:'Koobideh bowl', items:{beef80:1, eggs:1, rice:1, onion:1, shirazi:1}, slots:['dinner']},
+  {name:'Joojeh plate', items:{chicken:1, rice:1, shirazi:1, tzatziki:1}, slots:['lunch','dinner']},
+  {name:'Chicken tinga tacos', items:{chicken:1, salsa:1, onion:1, tortilla:1, cheese:1}, slots:['lunch','dinner'], recipe:[
+    'Poach the chicken breast in simmering water ~15 min, then shred with two forks.',
+    'Blend the salsa with 1–2 chipotles in adobo and a splash of the poaching water (or just use a chipotle salsa).',
+    'Sauté the onion until soft, pour in the sauce, add the shredded chicken, and simmer 10 min until it thickens and stains everything brick-red.',
+    'Char the corn tortillas over the flame, fill with tinga, scatter the melted cheese blend over while hot. Cilantro and lime if you have them.']},
+  {name:'Chicken shawarma bowl', items:{chicken:1, rice:1, shirazi:1, tzatziki:1, onion:1}, slots:['lunch','dinner'], recipe:[
+    'Slice the chicken thin and toss with cumin, coriander, smoked paprika, turmeric, garlic powder, black pepper, a big squeeze of lemon, and salt. 20 min if you have it, overnight if you plan ahead.',
+    'Sear in a very hot pan without crowding until charred at the edges, ~3 min per side.',
+    'Slice the onion thin and throw it in for the last 2 minutes.',
+    'Build the bowl: rice, chicken and onion, shirazi on the side, tzatziki over the top.']},
+  {name:'Chicken ghormeh sabzi', items:{chicken:1, beans:1, onion:1, rice:1}, slots:['dinner'], recipe:[
+    'Dry-sauté a big bunch of chopped parsley and cilantro with a spoon of dried fenugreek leaves until deep dark green and fragrant — this step IS ghormeh sabzi, do not rush it.',
+    'Add the diced onion with a pinch of turmeric, then the chicken in chunks. Brown lightly.',
+    'Add the black beans (kidney beans if you have them), 1–2 pierced dried limes (limoo amani) or juice of one lime, and water to barely cover. Simmer 30–40 min.',
+    'Season with salt and serve over the rice. Tastes even better tomorrow.']},
+  {name:'Egg roll in a bowl', items:{turkey:1, cabbage:1, onion:1, oil:1, eggs:1}, slots:['lunch','dinner'], recipe:[
+    'Brown the ground turkey with minced garlic and ginger, breaking it up small.',
+    'Add the slaw mix and sliced onion, stir-fry on high 3–4 min — keep the crunch.',
+    'Sauce: 2 tbsp soy sauce, splash of rice vinegar, and the sesame oil (that is your counted teaspoon of oil). Toss through.',
+    'Fry the egg and slide it on top. Sriracha to finish.']},
+  {name:'Big Mac bowl', items:{beef80:1, greens:1, cheese:1, onion:1}, slots:['lunch','dinner'], recipe:[
+    'Brown the beef with salt and onion powder, breaking it up small. Drain.',
+    'Special sauce: 3 tbsp nonfat greek yogurt, 1 tbsp mustard, 2 tsp ketchup, and a spoon of chopped pickles — stir together (~40 cal, worth logging a splash).',
+    'Shredded greens in a bowl, hot beef over, cheese scattered on the beef so it melts.',
+    'Top with diced raw onion, extra pickles (free), and the sauce. Sesame seeds if you are committed.']}
 ];
 const qty = {};
 const $ = id => document.getElementById(id);
 let selSlot = 'breakfast';
+let curPreset = null;
 
 function pMac(p){ let c=0, pr=0; for (const k in p.items){ const g = ING.find(x=>x.id===k); c += g.cal*p.items[k]; pr += g.pro*p.items[k]; } return {c, p:pr}; }
 function dkey(d){ return 'cutlog-' + d; }
@@ -219,6 +245,7 @@ list.addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   qty[b.dataset.id] = Math.max(0, Math.min(6, qty[b.dataset.id] + +b.dataset.d));
   $('q-'+b.dataset.id).textContent = qty[b.dataset.id];
+  curPreset = null;
   update();
 });
 
@@ -233,6 +260,7 @@ function renderPresets(){
     b.addEventListener('click', () => {
       ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
       for (const k in p.items){ qty[k]=p.items[k]; $('q-'+k).textContent = p.items[k]; }
+      curPreset = p;
       update();
       $('mc').scrollIntoView({behavior:'smooth', block:'center'});
     });
@@ -384,17 +412,22 @@ function buildRecipe(){
   return {title, steps};
 }
 $('gen').addEventListener('click', () => {
-  const r = buildRecipe(); if(!r) return;
+  const r = (curPreset && curPreset.recipe) ? {title: curPreset.name, steps: curPreset.recipe} : buildRecipe();
+  if(!r) return;
   const t = totals();
   $('rt').textContent = r.title;
   $('rm').textContent = t.c.toLocaleString()+' cal · '+t.p+'g protein · logging to '+selSlot;
+  $('ri').innerHTML = '<p style="font-size:12px; font-weight:600; color:var(--muted); margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px;">Ingredients</p>' +
+    picked().map(g => '<div style="display:flex; justify-content:space-between; font-size:13.5px; padding:2px 0;"><span>'+(qty[g.id]>1 ? qty[g.id]+' × ' : '')+g.unit+' '+g.name.toLowerCase()+'</span><span style="color:var(--muted);">'+(g.cal*qty[g.id])+' cal · '+(g.pro*qty[g.id])+'g</span></div>').join('') +
+    '<p style="font-size:12px; color:var(--muted); margin:6px 0 0;">+ salt, pepper, and spices — free</p>';
   $('rs').innerHTML = r.steps.map((s,i)=>'<p><strong>'+(i+1)+'.</strong> '+s+'</p>').join('');
   $('recipe').style.display = 'block';
   $('recipe').scrollIntoView({behavior:'smooth'});
 });
 $('log').addEventListener('click', () => {
   const t = totals(); if(!t.c) return;
-  const r = buildRecipe();
+  const r = curPreset ? {title: curPreset.name} : buildRecipe();
+  curPreset = null;
   const log = getLog();
   log.push({t: new Date().toTimeString().slice(0,5), slot: selSlot, name: r ? r.title : 'Meal', c: t.c, p: t.p});
   saveLog(log);
@@ -408,6 +441,7 @@ $('log').addEventListener('click', () => {
 });
 $('reset').addEventListener('click', () => {
   ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
+  curPreset = null;
   $('recipe').style.display = 'none';
   update();
 });
