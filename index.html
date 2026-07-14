@@ -299,7 +299,17 @@ function dayTotals(d){ let c=0,p=0; getLog(d).forEach(m=>{c+=m.c;p+=m.p;}); retu
 function totals(){ let c=0,p=0; ING.forEach(g=>{c+=g.cal*qty[g.id];p+=g.pro*qty[g.id];}); return {c:Math.round(c),p:Math.round(p)}; }
 function picked(){ return ING.filter(g=>qty[g.id]>0); }
 function names(cat){ return picked().filter(g=>g.cat===cat); }
-function label(g){ return (qty[g.id]>1 ? qty[g.id]+'× ' : '') + g.unit + ' ' + g.name.toLowerCase(); }
+function label(g){
+  const q = qty[g.id], n = g.name.toLowerCase();
+  if (g.id === 'eggs') return q + ' egg' + (q>1?'s':'');
+  if (g.id === 'avocado') return q === 1 ? '1/2 avocado' : (q === 2 ? '1 avocado' : (q/2) + ' avocados');
+  if (g.id === 'tortilla') return (q*2) + ' corn tortillas';
+  if (g.id === 'whey') return q + ' scoop' + (q>1?'s':'') + ' whey';
+  if (g.id === 'potato' || g.id === 'banana') return q + ' ' + (g.id==='potato' ? 'potato'+(q>1?'es':'') : 'banana'+(q>1?'s':''));
+  if (g.unit.indexOf('1 cup') === 0) return q + ' cup' + (q>1?'s':'') + ' ' + n;
+  if (g.unit.indexOf('1/2 cup') === 0) return (q===1 ? '1/2 cup ' : (q===2 ? '1 cup ' : q/2 + ' cups ')) + n;
+  return (q>1 ? q+'× ' : '') + g.unit + ' ' + n;
+}
 
 const list = $('list');
 ING.forEach(g => {
@@ -410,6 +420,7 @@ $('sugBtn').addEventListener('click', () => showSuggestion(true));
 $('suggest').addEventListener('click', e => {
   if (e.target.closest('#sugAgain')) { showSuggestion(false); return; }
   if (e.target.closest('#sugClear')) {
+    dismissed[selSlot] = true;
     ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
     curPreset = null; sugList = [];
     $('recipe').style.display = 'none';
@@ -510,7 +521,7 @@ function showRecipe(){
   $('rt').textContent = r.title;
   $('rm').textContent = t.c.toLocaleString()+' cal · '+t.p+'g protein · logging to '+selSlot;
   $('ri').innerHTML = '<p style="font-size:12px; font-weight:600; color:var(--muted); margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px;">Ingredients</p>' +
-    picked().map(g => '<div style="display:flex; justify-content:space-between; font-size:13.5px; padding:2px 0;"><span>'+(qty[g.id]>1 ? qty[g.id]+' × ' : '')+g.unit+' '+g.name.toLowerCase()+'</span><span style="color:var(--muted);">'+(g.cal*qty[g.id])+' cal · '+(g.pro*qty[g.id])+'g</span></div>').join('') +
+    picked().map(g => '<div style="display:flex; justify-content:space-between; font-size:13.5px; padding:2px 0;"><span>'+label(g)+'</span><span style="color:var(--muted);">'+(g.cal*qty[g.id])+' cal · '+(g.pro*qty[g.id])+'g</span></div>').join('') +
     '<p style="font-size:12px; color:var(--muted); margin:6px 0 0;">+ salt, pepper, and spices — free</p>';
   $('rs').innerHTML = r.steps.map((s,i)=>'<p><strong>'+(i+1)+'.</strong> '+s+'</p>').join('');
   $('recipe').style.display = 'block';
@@ -533,6 +544,7 @@ $('log').addEventListener('click', () => {
   update();
 });
 $('reset').addEventListener('click', () => {
+  dismissed[selSlot] = true;
   ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
   curPreset = null;
   $('recipe').style.display = 'none';
@@ -735,28 +747,56 @@ $('copyShop').addEventListener('click', () => {
   const done = () => { $('copyShop').textContent = 'Copied ✓'; setTimeout(()=>{ $('copyShop').textContent = 'Copy list'; }, 1500); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(shopText).then(done, done); else done();
 });
+let dismissed = {};
 function updatePlanHint(){
   const di = (new Date().getDay()+6)%7;
   const nm = (getPlan()[di]||{})[selSlot];
   const box = $('planHint');
-  if (!nm){ box.style.display='none'; return; }
+  const done = loggedSlots();
+  if (!nm || done[selSlot]){ box.style.display='none'; return; }
   const p = PRESETS.find(x=>x.name===nm);
-  const m = p ? pMac(p) : null;
+  if (!p){ box.style.display='none'; return; }
+  const m = pMac(p);
+  if (totals().c === 0 && !dismissed[selSlot]) {
+    ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
+    for (const k in p.items){ qty[k]=p.items[k]; $('q-'+k).textContent = p.items[k]; }
+    curPreset = p;
+    update();
+    return;
+  }
   box.style.display = 'block';
-  box.innerHTML = '<p style="font-size:11.5px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin:0 0 6px;">Planned '+SLOTS.find(s=>s.id===selSlot).name.toLowerCase()+'</p>'+
-    '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">'+
-    '<div style="min-width:0;"><p style="font-size:17px; font-weight:600; margin:0;">'+nm+'</p>'+(m?'<p style="font-size:13px; color:var(--muted); margin:3px 0 0;">'+m.c.toLocaleString()+' cal · '+m.p+'g protein</p>':'')+'</div>'+
-    '<button id="loadPlanned" style="flex:none; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:14px 22px; font-size:15px; font-weight:600;">Load</button></div>';
+  const slotName = SLOTS.find(s=>s.id===selSlot).name.toLowerCase();
+  if (curPreset === p) {
+    box.innerHTML = '<p style="font-size:11.5px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin:0 0 6px;">Planned '+slotName+' — loaded ✓</p>'+
+      '<p style="font-size:17px; font-weight:600; margin:0;">'+nm+'</p>'+
+      '<p style="font-size:13px; color:var(--muted); margin:3px 0 10px;">'+m.c.toLocaleString()+' cal · '+m.p+'g protein — hit Recipe or Log below.</p>'+
+      '<div style="display:flex; gap:8px;">'+
+      '<button id="swapPlanned" style="flex:1; background:var(--card2); color:var(--text); border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600;">Swap for another idea</button>'+
+      '<button id="unloadPlanned" style="flex:1; background:var(--card2); color:var(--red); border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600;">Unload</button></div>';
+  } else {
+    box.innerHTML = '<p style="font-size:11.5px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin:0 0 6px;">Planned '+slotName+'</p>'+
+      '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">'+
+      '<div style="min-width:0;"><p style="font-size:17px; font-weight:600; margin:0;">'+nm+'</p><p style="font-size:13px; color:var(--muted); margin:3px 0 0;">'+m.c.toLocaleString()+' cal · '+m.p+'g protein</p></div>'+
+      '<button id="loadPlanned" style="flex:none; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:14px 22px; font-size:15px; font-weight:600;">Load</button></div>';
+  }
 }
 $('planHint').addEventListener('click', e => {
-  if (!e.target.closest('#loadPlanned')) return;
   const di = (new Date().getDay()+6)%7;
   const nm = (getPlan()[di]||{})[selSlot];
-  const p = PRESETS.find(x=>x.name===nm); if(!p) return;
-  ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
-  for (const k in p.items){ qty[k]=p.items[k]; $('q-'+k).textContent = p.items[k]; }
-  curPreset = p;
-  update();
+  const p = PRESETS.find(x=>x.name===nm);
+  if (e.target.closest('#loadPlanned') && p) {
+    delete dismissed[selSlot];
+    loadPresetQ(p);
+  } else if (e.target.closest('#swapPlanned')) {
+    dismissed[selSlot] = true;
+    showSuggestion(true);
+  } else if (e.target.closest('#unloadPlanned')) {
+    dismissed[selSlot] = true;
+    ING.forEach(g=>{qty[g.id]=0; $('q-'+g.id).textContent=0;});
+    curPreset = null;
+    $('recipe').style.display = 'none';
+    update();
+  }
 });
 document.querySelector('.nav').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
