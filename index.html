@@ -85,12 +85,12 @@ h2 { font-size:15px; font-weight:600; margin:18px 0 8px; }
   <h2>Quick meals — one tap to load</h2>
   <div class="presets" id="presets"></div>
 
-  <h2>Or build your own</h2>
-  <div class="cards">
+  <div class="cards" style="margin-top:14px;">
     <div class="card"><p class="lbl">This meal</p><p class="num"><span id="mc">0</span> cal</p><p class="cap"><span id="mp">0</span>g protein</p></div>
     <div class="card"><p class="lbl">Verdict</p><p class="num" style="font-size:14px; margin-top:4px;" id="verdict">Pick ingredients</p></div>
   </div>
-  <div id="list"></div>
+  <button id="listToggle" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--card); border:none; border-radius:12px; padding:13px 14px; color:var(--text); font-size:14px; font-weight:600; margin-bottom:8px;">Build your own — ingredients <span id="listChev" style="color:var(--muted);">▸</span></button>
+  <div id="list" style="display:none;"></div>
   <div class="btns">
     <button id="gen">Recipe</button>
     <button id="log">Log meal</button>
@@ -137,6 +137,8 @@ const ING = [
   {id:'whites', name:'Egg whites', unit:'1 cup', cal:125, pro:26, cat:'egg'},
   {id:'whey', name:'Whey isolate', unit:'1 scoop', cal:120, pro:25, cat:'shake'},
   {id:'yogurt', name:'Greek yogurt (nonfat)', unit:'1 cup', cal:130, pro:23, cat:'shake'},
+  {id:'banana', name:'Frozen banana', unit:'1 medium', cal:105, pro:1, cat:'shake'},
+  {id:'milk', name:'Whole milk', unit:'1 cup', cal:150, pro:8, cat:'shake'},
   {id:'feta', name:'Feta', unit:'1 oz', cal:75, pro:4, cat:'top'},
   {id:'cheese', name:'Melted cheese blend', unit:'1 oz', cal:110, pro:7, cat:'top'},
   {id:'avocado', name:'Avocado', unit:'1/2', cal:120, pro:1, cat:'top'},
@@ -153,7 +155,8 @@ const ING = [
   {id:'shirazi', name:'Shirazi salad (tomato-cucumber)', unit:'1 cup', cal:45, pro:1, cat:'veg'},
   {id:'tzatziki', name:'Tzatziki / mast-o-khiar', unit:'1/2 cup', cal:80, pro:4, cat:'top'},
   {id:'hummus', name:'Hummus', unit:'2 tbsp', cal:70, pro:2, cat:'top'},
-  {id:'pita', name:'Pita', unit:'1/2', cal:80, pro:3, cat:'carb'}
+  {id:'pita', name:'Pita', unit:'1/2', cal:80, pro:3, cat:'carb'},
+  {id:'toast', name:'Sourdough toast', unit:'1 slice', cal:120, pro:4, cat:'carb'}
 ];
 const SLOTS = [
   {id:'breakfast', name:'Breakfast', budget:450},
@@ -162,19 +165,20 @@ const SLOTS = [
   {id:'snack', name:'Snack', budget:350}
 ];
 const PRESETS = [
-  {name:'Protein scramble', items:{eggs:3, whites:1, feta:1, onion:1}, slots:['breakfast']},
+  {name:'Feta scramble', items:{eggs:4, feta:1, onion:1}, slots:['breakfast']},
   {name:'Turkey scramble', items:{turkey:1, eggs:2, onion:1}, slots:['breakfast']},
   {name:'Protein parfait', items:{yogurt:1, whey:1}, slots:['breakfast','snack']},
-  {name:'Eggs and avocado', items:{eggs:2, whites:1, avocado:1, onion:1}, slots:['breakfast']},
+  {name:'Avocado toast + boiled eggs', items:{toast:1, avocado:1, eggs:2, oil:1}, slots:['breakfast']},
   {name:'Burger bowl', items:{beef80:1, greens:1, feta:1, avocado:1, onion:1}, slots:['lunch','dinner']},
   {name:'Turkey burger bowl', items:{turkey:1, greens:1, feta:1, onion:1}, slots:['lunch','dinner']},
   {name:'Steak salad', items:{sirloin:1, greens:1, feta:1}, slots:['lunch','dinner']},
   {name:'Turkey rice bowl', items:{turkey:1, rice:1, onion:1, veg:1}, slots:['lunch','dinner']},
   {name:'Chicken plate', items:{chicken:1, veg:1, rice:1}, slots:['lunch','dinner']},
   {name:'Steak and potato', items:{sirloin:1, potato:1, veg:1}, slots:['dinner']},
-  {name:'Whey shake', items:{whey:2}, slots:['snack']},
+  {name:'Whey shake (water)', items:{whey:2}, slots:['snack']},
+  {name:'Banana milkshake', items:{whey:2, banana:1, milk:1}, slots:['snack','breakfast']},
   {name:'Greek yogurt cup', items:{yogurt:1}, slots:['snack']},
-  {name:'Huevos con salsa', items:{eggs:3, whites:1, salsa:1, tortilla:1}, slots:['breakfast']},
+  {name:'Huevos con salsa', items:{eggs:3, salsa:1, tortilla:1, cheese:1}, slots:['breakfast']},
   {name:'Street tacos', items:{turkey:1, tortilla:1, onion:1, cilantro:1, salsa:1}, slots:['lunch','dinner']},
   {name:'Turkey taco bowl', items:{turkey:1, rice:1, salsa:1, onion:1, avocado:1, cilantro:1}, slots:['lunch','dinner']},
   {name:'Steak fajitas', items:{sirloin:1, onion:1, veg:1, tortilla:1, cilantro:1}, slots:['lunch','dinner']},
@@ -341,6 +345,13 @@ function buildRecipe(){
       'Sear in a screaming-hot pan '+(qty['oil']?'with the olive oil ':'')+'~3–4 min per side (steak: rest 5 min, then slice).',
       qty['onion']?'Soften the onion in the same pan — the fond is flavor.':'',
       hasGreens?'Slice over the salad greens'+(top.filter(g=>g.id!=='oil').length?' with '+top.filter(g=>g.id!=='oil').map(label).join(', '):'')+'. Vinegar dressing, not creamy.':(veg.length||carb.length?'Plate with the '+veg.concat(carb).map(label).join(' and ')+'.':'')];
+  } else if (egg.length && qty['toast']>0 && hasAvo) {
+    title = 'Avocado toast with jammy eggs';
+    steps = ['Eggs into boiling water for 7 minutes (jammy) or 9–10 (fully hard), then straight into ice water. Peel.',
+      'Toast the sourdough well — it needs structure.',
+      'Mash the avocado on the toast with salt, pepper, and a squeeze of lemon or lime.',
+      'Halve the eggs, lay them on top, sprinkle with flaky salt'+(qty['oil']?', and finish with the olive oil drizzled over':'')+'. Chili flakes if you like heat.',
+      'Batch tip: boil 6–8 eggs on Sunday and this breakfast takes 3 minutes all week.'];
   } else if (egg.length) {
     title = 'High-protein scramble';
     steps = [qty['onion']?'Soften the onion in a nonstick pan, 3 min.':'Heat a nonstick pan over medium.',
@@ -348,9 +359,17 @@ function buildRecipe(){
       hasFeta?'Crumble the feta in off the heat so it stays creamy.':'',
       hasAvo?'Avocado on the side, salted.':''];
   } else if (shake.length) {
-    title = qty['yogurt'] ? 'Protein parfait' : 'Whey shake';
-    steps = [qty['yogurt']?'Stir the whey into the greek yogurt until smooth — instant pudding.':'Shake the whey with 10–12 oz cold water and ice.',
-      'Best slot: post-workout or the 9pm hunger killer.'];
+    if (qty['banana'] || qty['milk']) {
+      title = 'Banana whey shake';
+      steps = ['Blender: '+(qty['milk']?'the whole milk first (liquid at the bottom blends smoother)':'8 oz cold water')+', then the whey'+(qty['banana']?', then the frozen banana broken into chunks':'')+'.',
+        'Blend ~45 seconds until thick — the frozen banana makes it taste like a milkshake, no ice cream needed.',
+        qty['yogurt']?'Add the greek yogurt for extra body and protein.':'',
+        'Best slot: post-workout, when those carbs actually get used.'];
+    } else {
+      title = qty['yogurt'] ? 'Protein parfait' : 'Whey shake';
+      steps = [qty['yogurt']?'Stir the whey into the greek yogurt until smooth — instant pudding.':'Shake the whey with 10–12 oz cold water and ice.',
+        'Best slot: post-workout or the 9pm hunger killer.'];
+    }
   } else {
     title = 'Side plate';
     steps = ['Roast or sauté the '+sel.map(label).join(', ')+' with salt and pepper. Add a protein to make it a meal.'];
@@ -393,6 +412,11 @@ $('reset').addEventListener('click', () => {
   update();
 });
 $('clearDay').addEventListener('click', () => { if(confirm("Clear today's log?")){ saveLog([]); update(); } });
+$('listToggle').addEventListener('click', () => {
+  const open = $('list').style.display !== 'none';
+  $('list').style.display = open ? 'none' : 'block';
+  $('listChev').textContent = open ? '▸' : '▾';
+});
 
 $('wSave').addEventListener('click', () => {
   const v = parseFloat($('wIn').value);
